@@ -1,16 +1,13 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const pool = require('./db');
 const app = express();
-const pool = require('./db');  // Conexión a la base de datos
-const { secretKey } = require('./utils');  // Clave secreta para JWT
-const { obtenerJugadores, registrarJugador } = require('./controllers/jugadores');
-const { obtenerEquipos, agregarEquipo } = require('./controllers/equipos');
+const { secretKey } = require('./utils');  
 
 app.use(express.json());
 
 const admin = { username: 'admin', password: '1234' };
 
-// Ruta para login con generación de token JWT
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
     if (username === admin.username && password === admin.password) {
@@ -20,10 +17,8 @@ app.post('/login', (req, res) => {
     return res.status(400).send('Credenciales incorrectas');
 });
 
-
-
 const verifyToken = (req, res, next) => {
-    const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1]; // Dividir por 'Bearer '
+    const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1];
     if (!token) return res.status(403).send('Se necesita un token');
     try {
         const verified = jwt.verify(token, secretKey);
@@ -34,12 +29,41 @@ const verifyToken = (req, res, next) => {
     }
 };
 
+// Rutas
+app.get('/equipos', async (req, res) => {
+    const result = await pool.query('SELECT * FROM equipos');
+    return res.json(result.rows);
+});
 
-// Rutas existentes para obtener y registrar equipos y jugadores
-app.get("/equipos", obtenerEquipos);
-app.post("/equipos", verifyToken, agregarEquipo);  // Ahora requiere token JWT para agregar un equipo
-app.get("/equipos/:teamID/jugadores", obtenerJugadores);
-app.post("/equipos/:teamID/jugadores", verifyToken, registrarJugador);  // Ahora requiere token JWT para agregar un jugador
+app.get('/equipos/:teamID/jugadores', async (req, res) => {
+    const { teamID } = req.params;
+    const result = await pool.query(`
+        SELECT j.name, p.name AS posicion 
+        FROM jugadores j 
+        INNER JOIN posiciones p ON j.position = p.id 
+        WHERE j.id_equipo = $1
+    `, [teamID]);
+    return res.json(result.rows);
+});
 
-// Servidor en ejecución
-app.listen(3000, () => console.log('Server running on port 3000'));
+app.post('/equipos', verifyToken, async (req, res) => {
+    const { name } = req.body;
+    const result = await pool.query('INSERT INTO equipos (name) VALUES ($1) RETURNING *', [name]);
+    return res.status(201).json(result.rows[0]);
+});
+
+app.post('/equipos/:teamID/jugadores', verifyToken, async (req, res) => {
+    const { teamID } = req.params;
+    const { name, position } = req.body;
+    const result = await pool.query(
+        'INSERT INTO jugadores (id_equipo, name, position) VALUES ($1, $2, $3) RETURNING *',
+        [teamID, name, position]
+    );
+    return res.status(201).json(result.rows[0]);
+});
+
+module.exports = app;
+
+if (require.main === module) {
+    app.listen(3000, () => console.log('Server running on port 3000'));
+}
