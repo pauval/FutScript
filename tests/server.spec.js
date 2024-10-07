@@ -1,7 +1,6 @@
 const request = require('supertest');
-const app = require('../index');  // Asegúrate de que tu servidor está exportado
+const app = require('../index');  
 
-// Test para la ruta GET /equipos
 describe('GET /equipos', () => {
     it('Debe devolver un array y un status code 200', async () => {
         const response = await request(app).get('/equipos').send();
@@ -10,7 +9,6 @@ describe('GET /equipos', () => {
     });
 });
 
-// Test para la ruta POST /login
 describe('POST /login', () => {
     it('Debe devolver un objeto con token al enviar credenciales correctas', async () => {
         const response = await request(app).post('/login').send({ username: 'admin', password: '1234' });
@@ -24,7 +22,6 @@ describe('POST /login', () => {
     });
 });
 
-// Test para la ruta POST /equipos/:teamID/jugadores
 describe('POST /equipos/:teamID/jugadores', () => {
     it('Debe devolver un status 201 al agregar un jugador con un token válido', async () => {
         const loginResponse = await request(app).post('/login').send({ username: 'admin', password: '1234' });
